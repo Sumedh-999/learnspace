@@ -1,0 +1,13 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --brand: #c8102e; --brand-dark: #9e0c24; --brand-light: #fdf1f3;
+  --nav-bg: #1a1a2e; --nav-text: #c8d0e0;
+  --bg: #f4f4f6; --surface: #ffffff; --surface2: #f8f8fa;
+  --border: #e5e5ea; --border2: #d1d1d6;
+  --text: #1c1c1e; --text2: #6c6c70; --text3: #aeaeb2;
+  --font-sans: 'DM Sans', sans-serif;
+  --font-display: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --radius: 8px; --radius-lg: 12px;
+}
+body { font-family: var(--font-sans); background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
