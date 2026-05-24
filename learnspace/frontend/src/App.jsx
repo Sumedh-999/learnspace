@@ -171,91 +171,130 @@ function CalendarView({events}) {
 }
 
 function Chatbot() {
-  const [open,setOpen]=useState(false)
-  const [msgs,setMsgs]=useState([{role:'bot',text:"Hi Sumedh! 👋 I'm LearnBot. Ask me about assignments, grades, quizzes, or your courses!"}])
-  const [input,setInput]=useState(''),[streaming,setStreaming]=useState(false)
-  const ref=useRef(null)
-  useEffect(()=>{if(ref.current)ref.current.scrollTop=ref.current.scrollHeight},[msgs])
+  const [open, setOpen] = useState(false)
+  const [msgs, setMsgs] = useState([{role:'bot', text:"Hi Sumedh! 👋 I'm LearnBot. Ask me about assignments, grades, quizzes, or your courses!"}])
+  const [input, setInput] = useState('')
+  const [streaming, setStreaming] = useState(false)
+  const [listening, setListening] = useState(false)
+  const [speaking, setSpeaking] = useState(false)
+  const ref = useRef(null)
+  const recognitionRef = useRef(null)
+
+  useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight }, [msgs])
+
+  function startListening() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) { alert('Speech recognition not supported. Use Chrome or Edge.'); return }
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'en-US'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    recognition.onstart = () => setListening(true)
+    recognition.onend = () => setListening(false)
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript
+      setInput(transcript)
+      setTimeout(() => send(transcript), 300)
+    }
+    recognition.onerror = () => setListening(false)
+    recognitionRef.current = recognition
+    recognition.start()
+  }
+
+  function stopListening() {
+    if (recognitionRef.current) recognitionRef.current.stop()
+    setListening(false)
+  }
+
+  function speakText(text) {
+    if (!window.speechSynthesis) return
+    window.speechSynthesis.cancel()
+    const clean = text.replace(/[*_#`]/g, '').replace(/\n/g, ' ')
+    const utterance = new SpeechSynthesisUtterance(clean)
+    utterance.lang = 'en-US'
+    utterance.rate = 1.0
+    utterance.pitch = 1.0
+    const voices = window.speechSynthesis.getVoices()
+    const preferred = voices.find(v => v.name.includes('Google') && v.lang === 'en-US')
+    if (preferred) utterance.voice = preferred
+    utterance.onstart = () => setSpeaking(true)
+    utterance.onend = () => setSpeaking(false)
+    window.speechSynthesis.speak(utterance)
+  }
 
   async function send(text) {
-    const q=(text||input).trim();if(!q||streaming)return
+    const q = (text || input).trim()
+    if (!q || streaming) return
     setInput('')
-    setMsgs(m=>[...m,{role:'user',text:q},{role:'bot',text:'',streaming:true}])
+    setMsgs(m => [...m, {role:'user', text:q}, {role:'bot', text:'', streaming:true}])
     setStreaming(true)
     try {
-      let full=''
-      for await(const chunk of streamChat(q)){full+=chunk;setMsgs(m=>m.map((x,i)=>i===m.length-1?{...x,text:full}:x))}
-      setMsgs(m=>m.map((x,i)=>i===m.length-1?{...x,streaming:false}:x))
+      let full = ''
+      for await (const chunk of streamChat(q)) {
+        full += chunk
+        setMsgs(m => m.map((x, i) => i === m.length - 1 ? {...x, text: full} : x))
+      }
+      setMsgs(m => m.map((x, i) => i === m.length - 1 ? {...x, streaming: false} : x))
+      speakText(full)
     } catch {
-      setMsgs(m=>m.map((x,i)=>i===m.length-1?{role:'bot',text:'Connection error — check that your backend is running and ANTHROPIC_API_KEY is set.'}:x))
+      setMsgs(m => m.map((x, i) => i === m.length - 1 ? {role:'bot', text:'Connection error.'} : x))
     }
     setStreaming(false)
   }
 
-  if(!open)return <button onClick={()=>setOpen(true)} style={{position:'absolute',bottom:20,right:20,width:48,height:48,borderRadius:'50%',background:'var(--brand)',border:'none',cursor:'pointer',color:'#fff',fontSize:22,zIndex:10,boxShadow:'0 2px 8px rgba(0,0,0,0.2)'}} aria-label="Open LearnBot">🤖</button>
+  function stopSpeaking() {
+    window.speechSynthesis.cancel()
+    setSpeaking(false)
+  }
 
-  return <div style={{position:'absolute',bottom:20,right:20,width:320,background:'var(--surface)',border:'0.5px solid var(--border2)',borderRadius:'var(--radius-lg)',display:'flex',flexDirection:'column',zIndex:10,overflow:'hidden',boxShadow:'0 4px 20px rgba(0,0,0,0.1)'}}>
-    <div style={{background:'var(--brand)',padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-      <div style={{color:'#fff',fontSize:14,fontWeight:500}}>🤖 LearnBot AI</div>
-      <button onClick={()=>setOpen(false)} style={{background:'none',border:'none',color:'rgba(255,255,255,0.8)',cursor:'pointer',fontSize:18}}>×</button>
-    </div>
-    <div ref={ref} style={{height:260,overflowY:'auto',padding:12,display:'flex',flexDirection:'column',gap:8}}>
-      {msgs.map((m,i)=><div key={i} style={{maxWidth:'85%',padding:'8px 10px',borderRadius:10,fontSize:12,lineHeight:1.5,alignSelf:m.role==='user'?'flex-end':'flex-start',background:m.role==='user'?'var(--brand)':'var(--surface2)',color:m.role==='user'?'#fff':'var(--text)',borderBottomRightRadius:m.role==='user'?3:10,borderBottomLeftRadius:m.role==='bot'?3:10}}>{m.text||(m.streaming?'...':'')}</div>)}
-    </div>
-    {msgs.length<=2&&<div style={{padding:'6px 12px',display:'flex',flexWrap:'wrap',gap:5,borderTop:'0.5px solid var(--border)'}}>
-      {["What's due today?","My grades?","Upcoming quizzes?","Any announcements?"].map(c=><button key={c} onClick={()=>send(c)} style={{padding:'4px 10px',borderRadius:10,border:'0.5px solid var(--border2)',fontSize:11,cursor:'pointer',color:'var(--text2)',background:'transparent',fontFamily:'var(--font-sans)'}}>{c}</button>)}
-    </div>}
-    <div style={{display:'flex',gap:6,padding:'8px 12px',borderTop:'0.5px solid var(--border)'}}>
-      <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder="Ask about your courses..." style={{flex:1,border:'0.5px solid var(--border2)',borderRadius:'var(--radius)',padding:'7px 10px',fontSize:12,background:'var(--surface2)',color:'var(--text)',outline:'none',fontFamily:'var(--font-sans)'}}/>
-      <button onClick={()=>send()} style={{width:30,height:30,borderRadius:'var(--radius)',background:'var(--brand)',border:'none',cursor:'pointer',color:'#fff',fontSize:14}}>↑</button>
-    </div>
-  </div>
-}
+  if (!open) return (
+    <button onClick={() => setOpen(true)} style={{position:'absolute',bottom:20,right:20,width:48,height:48,borderRadius:'50%',background:'var(--brand)',border:'none',cursor:'pointer',color:'#fff',fontSize:22,zIndex:10,boxShadow:'0 2px 8px rgba(0,0,0,0.2)'}} aria-label="Open LearnBot">🤖</button>
+  )
 
-export default function App() {
-  const [page,setPage]=useState('dashboard')
-  const [data,setData]=useState({assignments:[],grades:[],courses:[],quizzes:[],announcements:[],discussions:[],events:[]})
-  const [loading,setLoading]=useState(true)
-
-  useEffect(()=>{
-    Promise.all([fetchAssignments(),fetchGrades(),fetchCourses(),fetchQuizzes(),fetchAnnouncements(),fetchDiscussions(),fetchCalendar()])
-      .then(([assignments,grades,courses,quizzes,announcements,discussions,events])=>{
-        setData({assignments,grades,courses,quizzes,announcements,discussions,events});setLoading(false)
-      }).catch(()=>setLoading(false))
-  },[])
-
-  const pending=data.assignments.filter(a=>['due','pending'].includes(a.status))
-
-  return <div style={{display:'flex',flexDirection:'column',height:'100vh'}}>
-    <div style={{background:'var(--brand)',padding:'0 20px',height:48,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
-      <div style={{color:'#fff',fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:16,display:'flex',alignItems:'center',gap:8}}>🎓 LearnSpace <span style={{opacity:.6,fontSize:12,fontWeight:400}}>/ Student Portal</span></div>
-      <div style={{display:'flex',alignItems:'center',gap:12}}>
-        <span style={{color:'rgba(255,255,255,0.8)',fontSize:18}}>🔔</span>
-        <div style={{width:30,height:30,borderRadius:'50%',background:'rgba(255,255,255,0.2)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:12,fontWeight:500}}>SJ</div>
-      </div>
-    </div>
-    <div style={{display:'flex',flex:1,overflow:'hidden'}}>
-      <div style={{width:200,background:'var(--nav-bg)',display:'flex',flexDirection:'column',flexShrink:0,padding:'12px 0'}}>
-        {PAGES.map(p=><div key={p.id} onClick={()=>setPage(p.id)} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 16px',color:page===p.id?'#fff':'var(--nav-text)',cursor:'pointer',fontSize:13,borderLeft:`3px solid ${page===p.id?'var(--brand)':'transparent'}`,background:page===p.id?'rgba(200,16,46,0.15)':'transparent'}}>
-          <span>{p.icon}</span>{p.label}
-          {p.badge==='assignments'&&pending.length>0&&<span style={{marginLeft:'auto',background:'var(--brand)',color:'#fff',fontSize:10,padding:'1px 6px',borderRadius:10}}>{pending.length}</span>}
-        </div>)}
-      </div>
-      <div style={{position:'relative',flex:1,display:'flex',overflow:'hidden'}}>
-        <div style={{flex:1,overflowY:'auto',padding:20}}>
-          {loading?<div style={{textAlign:'center',padding:40,color:'var(--text2)'}}>Connecting to backend...</div>:<>
-            {page==='dashboard'&&<Dashboard data={data}/>}
-            {page==='courses'&&<Courses courses={data.courses}/>}
-            {page==='assignments'&&<Assignments assignments={data.assignments}/>}
-            {page==='quizzes'&&<Quizzes quizzes={data.quizzes}/>}
-            {page==='grades'&&<Grades grades={data.grades}/>}
-            {page==='discussions'&&<Discussions discussions={data.discussions}/>}
-            {page==='announcements'&&<Announcements announcements={data.announcements}/>}
-            {page==='calendar'&&<CalendarView events={data.events}/>}
-          </>}
+  return (
+    <div style={{position:'absolute',bottom:20,right:20,width:320,background:'var(--surface)',border:'0.5px solid var(--border2)',borderRadius:'var(--radius-lg)',display:'flex',flexDirection:'column',zIndex:10,overflow:'hidden',boxShadow:'0 4px 20px rgba(0,0,0,0.1)'}}>
+      <div style={{background:'var(--brand)',padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{color:'#fff',fontSize:14,fontWeight:500,display:'flex',alignItems:'center',gap:6}}>
+          🤖 LearnBot AI
+          {speaking && <span style={{fontSize:11,background:'rgba(255,255,255,0.2)',padding:'2px 8px',borderRadius:10,animation:'pulse 1s infinite'}}>🔊 Speaking...</span>}
         </div>
-        <Chatbot/>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          {speaking && <button onClick={stopSpeaking} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'#fff',cursor:'pointer',borderRadius:6,padding:'2px 8px',fontSize:11}}>Stop</button>}
+          <button onClick={() => setOpen(false)} style={{background:'none',border:'none',color:'rgba(255,255,255,0.8)',cursor:'pointer',fontSize:18}}>×</button>
+        </div>
+      </div>
+
+      <div ref={ref} style={{height:260,overflowY:'auto',padding:12,display:'flex',flexDirection:'column',gap:8}}>
+        {msgs.map((m, i) => (
+          <div key={i} style={{maxWidth:'85%',padding:'8px 10px',borderRadius:10,fontSize:12,lineHeight:1.5,alignSelf:m.role==='user'?'flex-end':'flex-start',background:m.role==='user'?'var(--brand)':'var(--surface2)',color:m.role==='user'?'#fff':'var(--text)',borderBottomRightRadius:m.role==='user'?3:10,borderBottomLeftRadius:m.role==='bot'?3:10}}>
+            {m.text || (m.streaming ? '...' : '')}
+          </div>
+        ))}
+      </div>
+
+      {msgs.length <= 2 && (
+        <div style={{padding:'6px 12px',display:'flex',flexWrap:'wrap',gap:5,borderTop:'0.5px solid var(--border)'}}>
+          {["What's due today?","My grades?","Upcoming quizzes?","Any announcements?"].map(c => (
+            <button key={c} onClick={() => send(c)} style={{padding:'4px 10px',borderRadius:10,border:'0.5px solid var(--border2)',fontSize:11,cursor:'pointer',color:'var(--text2)',background:'transparent',fontFamily:'var(--font-sans)'}}>{c}</button>
+          ))}
+        </div>
+      )}
+
+      <div style={{display:'flex',gap:6,padding:'8px 12px',borderTop:'0.5px solid var(--border)',alignItems:'center'}}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && send()}
+          placeholder={listening ? '🎤 Listening...' : 'Ask about your courses...'}
+          style={{flex:1,border:`0.5px solid ${listening ? 'var(--brand)' : 'var(--border2)'}`,borderRadius:'var(--radius)',padding:'7px 10px',fontSize:12,background:listening?'var(--brand-light)':'var(--surface2)',color:'var(--text)',outline:'none',fontFamily:'var(--font-sans)',transition:'all .2s'}}
+        />
+        <button
+          onClick={listening ? stopListening : startListening}
+          style={{width:30,height:30,borderRadius:'var(--radius)',background:listening?'#dc2626':'var(--surface2)',border:`0.5px solid ${listening?'#dc2626':'var(--border2)'}`,cursor:'pointer',fontSize:14,transition:'all .2s'}}
+          title={listening ? 'Stop listening' : 'Speak'}
+        >🎤</button>
+        <button onClick={() => send()} style={{width:30,height:30,borderRadius:'var(--radius)',background:'var(--brand)',border:'none',cursor:'pointer',color:'#fff',fontSize:14}}>↑</button>
       </div>
     </div>
-  </div>
+  )
 }
