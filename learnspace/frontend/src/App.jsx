@@ -298,3 +298,51 @@ function Chatbot() {
     </div>
   )
 }
+
+export default function App() {
+  const [page,setPage]=useState('dashboard')
+  const [data,setData]=useState({assignments:[],grades:[],courses:[],quizzes:[],announcements:[],discussions:[],events:[]})
+  const [loading,setLoading]=useState(true)
+
+  useEffect(()=>{
+    Promise.all([fetchAssignments(),fetchGrades(),fetchCourses(),fetchQuizzes(),fetchAnnouncements(),fetchDiscussions(),fetchCalendar()])
+      .then(([assignments,grades,courses,quizzes,announcements,discussions,events])=>{
+        setData({assignments,grades,courses,quizzes,announcements,discussions,events});setLoading(false)
+      }).catch(()=>setLoading(false))
+  },[])
+
+  const pending=data.assignments.filter(a=>['due','pending'].includes(a.status))
+
+  return <div style={{display:'flex',flexDirection:'column',height:'100vh'}}>
+    <div style={{background:'var(--brand)',padding:'0 20px',height:48,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+      <div style={{color:'#fff',fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:16,display:'flex',alignItems:'center',gap:8}}>🎓 LearnSpace <span style={{opacity:.6,fontSize:12,fontWeight:400}}>/ Student Portal</span></div>
+      <div style={{display:'flex',alignItems:'center',gap:12}}>
+        <span style={{color:'rgba(255,255,255,0.8)',fontSize:18}}>🔔</span>
+        <div style={{width:30,height:30,borderRadius:'50%',background:'rgba(255,255,255,0.2)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:12,fontWeight:500}}>SJ</div>
+      </div>
+    </div>
+    <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+      <div style={{width:200,background:'var(--nav-bg)',display:'flex',flexDirection:'column',flexShrink:0,padding:'12px 0'}}>
+        {PAGES.map(p=><div key={p.id} onClick={()=>setPage(p.id)} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 16px',color:page===p.id?'#fff':'var(--nav-text)',cursor:'pointer',fontSize:13,borderLeft:`3px solid ${page===p.id?'var(--brand)':'transparent'}`,background:page===p.id?'rgba(200,16,46,0.15)':'transparent'}}>
+          <span>{p.icon}</span>{p.label}
+          {p.badge==='assignments'&&pending.length>0&&<span style={{marginLeft:'auto',background:'var(--brand)',color:'#fff',fontSize:10,padding:'1px 6px',borderRadius:10}}>{pending.length}</span>}
+        </div>)}
+      </div>
+      <div style={{position:'relative',flex:1,display:'flex',overflow:'hidden'}}>
+        <div style={{flex:1,overflowY:'auto',padding:20}}>
+          {loading?<div style={{textAlign:'center',padding:40,color:'var(--text2)'}}>Connecting to backend...</div>:<>
+            {page==='dashboard'&&<Dashboard data={data}/>}
+            {page==='courses'&&<Courses courses={data.courses}/>}
+            {page==='assignments'&&<Assignments assignments={data.assignments}/>}
+            {page==='quizzes'&&<Quizzes quizzes={data.quizzes}/>}
+            {page==='grades'&&<Grades grades={data.grades}/>}
+            {page==='discussions'&&<Discussions discussions={data.discussions}/>}
+            {page==='announcements'&&<Announcements announcements={data.announcements}/>}
+            {page==='calendar'&&<CalendarView events={data.events}/>}
+          </>}
+        </div>
+        <Chatbot/>
+      </div>
+    </div>
+  </div>
+}
