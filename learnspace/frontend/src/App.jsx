@@ -182,6 +182,11 @@ function Chatbot() {
 
   useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight }, [msgs])
 
+  function isGreeting(text) {
+    const t = (text || '').toLowerCase().trim()
+    return /^(hi|hello|hey|hii|heyy|good morning|good afternoon|good evening)\b[!.?]*$/.test(t)
+  }
+
   function startListening() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) { alert('Speech recognition not supported. Use Chrome or Edge.'); return }
