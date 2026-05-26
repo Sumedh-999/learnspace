@@ -5,7 +5,6 @@ import anthropic
 import os
 import json
 import asyncpg
-
 from db.database import get_db
 
 router = APIRouter()
@@ -28,29 +27,46 @@ async def build_context(conn: asyncpg.Connection, student_id: int) -> str:
     announcements = await conn.fetch(
         "SELECT title, body, posted_at::date as date FROM announcements ORDER BY posted_at DESC LIMIT 5"
     )
-    return f"""ASSIGNMENTS: {json.dumps([dict(r) for r in assignments], default=str)}
+    courses = await conn.fetch(
+        "SELECT code, name, instructor, schedule, progress FROM courses ORDER BY code"
+    )
+    discussions = await conn.fetch(
+        "SELECT d.author_name, d.body, d.reply_count, d.posted_at::date as date, c.code FROM discussions d JOIN courses c ON d.course_id=c.id ORDER BY d.posted_at DESC"
+    )
+    events = await conn.fetch(
+        "SELECT e.title, e.event_date, e.event_type, c.code FROM calendar_events e LEFT JOIN courses c ON e.course_id=c.id ORDER BY e.event_date LIMIT 10"
+    )
+
+    return f"""
+COURSES (instructors & schedule): {json.dumps([dict(r) for r in courses], default=str)}
+ASSIGNMENTS: {json.dumps([dict(r) for r in assignments], default=str)}
 GRADES: {json.dumps([dict(r) for r in grades], default=str)}
 QUIZZES: {json.dumps([dict(r) for r in quizzes], default=str)}
 ANNOUNCEMENTS: {json.dumps([dict(r) for r in announcements], default=str)}
-TODAY: May 22, 2026"""
+DISCUSSIONS: {json.dumps([dict(r) for r in discussions], default=str)}
+CALENDAR: {json.dumps([dict(r) for r in events], default=str)}
+TODAY: May 26, 2026
+"""
 
 async def event_stream(message: str, context: str):
-    system = f"""You are LearnBot, an AI assistant embedded in LearnSpace LMS.
-You have FULL access to the student's academic data below. Always answer using it.
-- Faculty/instructors → look in COURSES data
-- Discussions → look in DISCUSSIONS data  
-- Schedule/deadlines → look in CALENDAR and ASSIGNMENTS
-- Never say you don't have access to something — the data is all below
-- Be friendly, specific, and concise. Use bullet points for lists.
-- For greetings like "hi", "hello", "hey" → reply with just a warm 1-sentence greeting, nothing else
-- Only share data when the student specifically asks for it
-- If asked something not in the data, say "That information isn't in your portal yet."
+    system = f"""You are LearnBot, an AI assistant in LearnSpace LMS.
+
+STRICT RULES:
+1. "hi", "hello", "hey" → reply with ONLY one short greeting, no data
+2. Only share data when explicitly asked
+3. Instructors/faculty → use COURSES data
+4. Discussions → use DISCUSSIONS data
+5. Schedule/deadlines → use CALENDAR + ASSIGNMENTS
+6. Unknown info → say "That's not in your portal yet."
+7. Use bullet points for lists
+8. Max 4 sentences unless listing items
 
 STUDENT DATA:
 {context}"""
+
     async with client.messages.stream(
         model="claude-sonnet-4-20250514",
-        max_tokens=500,
+        max_tokens=600,
         system=system,
         messages=[{"role": "user", "content": message}]
     ) as stream:
@@ -71,8 +87,8 @@ async def chat_stream(req: ChatRequest, conn: asyncpg.Connection = Depends(get_d
 async def chat_message(req: ChatRequest, conn: asyncpg.Connection = Depends(get_db)):
     context = await build_context(conn, req.student_id)
     resp = await client.messages.create(
-        model="claude-sonnet-4-20250514", max_tokens=500,
-        system=f"You are LearnBot. Answer concisely using: {context}",
+        model="claude-sonnet-4-20250514", max_tokens=600,
+        system=f"You are LearnBot. Answer using this student data:\n{context}",
         messages=[{"role": "user", "content": req.message}]
     )
     return {"reply": resp.content[0].text}
