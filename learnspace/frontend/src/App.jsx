@@ -470,7 +470,7 @@ function Chatbot() {
         <div className="chat-bot-avatar">🤖</div>
         <div>
           <div className="chat-bot-name">LearnBot AI {speaking && <span style={{ fontSize: 10, opacity: .8 }}>🔊</span>}</div>
-          <div className="chat-bot-status"><div className="chat-status-dot" />Online · Powered by Claude</div>
+          <div className="chat-bot-status"><div className="chat-status-dot" />Online · </div>
         </div>
         <button className="chat-close" onClick={() => { setOpen(false); window.speechSynthesis?.cancel() }}>×</button>
       </div>
