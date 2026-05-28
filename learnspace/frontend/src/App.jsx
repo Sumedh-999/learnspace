@@ -527,7 +527,7 @@ export default function App() {
           <div className="sidebar">
             <div className="sidebar-user">
               <div className="user-avatar">SJ</div>
-              <div><div className="user-name">Sumedh Joshi</div><div className="user-role">Cloud & AI Engineering</div></div>
+              <div><div className="user-name">Sumedh Mahajan</div><div className="user-role">Cloud & AI Engineering</div></div>
             </div>
             {GROUPS.map(group => (
               <div className="nav-group" key={group}>
