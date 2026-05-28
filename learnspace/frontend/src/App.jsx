@@ -46,8 +46,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .sidebar{width:210px;background:var(--nav);display:flex;flex-direction:column;flex-shrink:0;border-right:1px solid var(--border);transition:background .3s;overflow-y:auto;}
 .sidebar-user{padding:14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
 .user-avatar{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#c8102e,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;}
-.user-name{font-size:12px;font-weight:500;color:var(--text);}
-.user-role{font-size:10px;color:var(--text2);margin-top:1px;}
+.user-name{font-size:12px;font-weight:500;color:#fff;}
+.user-role{font-size:10px;color:rgba(255,255,255,0.72);margin-top:1px;}
 .nav-group{padding:10px 8px 4px;}
 .nav-label{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);padding:0 8px;margin-bottom:4px;}
 .nav-item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:10px;cursor:pointer;font-size:12px;color:var(--text2);transition:all .15s;margin-bottom:1px;position:relative;border:none;background:transparent;width:100%;text-align:left;font-family:var(--font);}
