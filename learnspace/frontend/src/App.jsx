@@ -65,7 +65,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .page-sub{font-size:12px;color:var(--text2);margin-top:3px;display:flex;align-items:center;gap:6px;}
 .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.stats{display:grid;grid-templateColumns:repeat(4,1fr);gap:10px;}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;position:relative;overflow:hidden;}
 .stat-top{position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0;}
 .stat-val{font-size:26px;font-weight:600;letter-spacing:-.5px;margin-bottom:2px;}
@@ -155,6 +155,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .chat-bot-name{color:#fff;font-size:13px;font-weight:500;}
 .chat-bot-status{color:rgba(255,255,255,0.7);font-size:10px;display:flex;align-items:center;gap:4px;}
 .chat-status-dot{width:5px;height:5px;border-radius:50%;background:var(--green);}
+.chat-stop-btn{background:rgba(255,255,255,0.2);border:none;color:#fff;cursor:pointer;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600;}
 .chat-close{background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;font-size:18px;margin-left:auto;padding:0;}
 .chat-msgs{height:220px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;}
 .chat-msgs::-webkit-scrollbar{width:3px;}
@@ -195,16 +196,25 @@ function Dashboard({ data }) {
   const pending = (data.assignments || []).filter(a => ['due', 'pending'].includes(a.status))
   const avg = data.grades?.length ? Math.round(data.grades.reduce((s, g) => s + Number(g.percentage), 0) / data.grades.length) : 0
   const upcoming = (data.quizzes || []).filter(q => q.status === 'upcoming')
-  const gpa = data.grades?.length ? (data.grades.reduce((s, g) => { const m = { 'A+': 4.0, 'A': 4.0, 'B+': 3.3, 'B': 3.0 }; return s + (m[g.letter_grade] || 3.0) }, 0) / data.grades.length).toFixed(1) : '0.0'
+  const gpa = data.grades?.length ? (data.grades.reduce((s, g) => {
+    const m = { 'A+': 4.0, 'A': 4.0, 'B+': 3.3, 'B': 3.0 }
+    return s + (m[g.letter_grade] || 3.0)
+  }, 0) / data.grades.length).toFixed(1) : '0.0'
+
   const stats = [
     { val: data.courses?.length || 0, lbl: 'Active courses', color: 'var(--brand)', top: '#c8102e', hint: '📚 All enrolled', hc: 'var(--text2)' },
     { val: `${avg}%`, lbl: 'Overall grade', color: 'var(--green)', top: '#4ade80', hint: '↑ On track', hc: 'var(--green)' },
     { val: upcoming.length, lbl: 'Upcoming quizzes', color: 'var(--blue)', top: '#60a5fa', hint: '⚠ This week', hc: 'var(--amber)' },
     { val: gpa, lbl: 'Current GPA', color: 'var(--purple)', top: '#a78bfa', hint: '★ Excellent', hc: 'var(--purple)' },
   ]
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div><div className="page-title">Good morning, Sumedh 👋</div><div className="page-sub"><div className="live-dot" />Live · Semester 2 · May 26, 2026</div></div>
+      <div>
+        <div className="page-title">Hello, Sumedh 👋</div>
+        <div className="page-sub"><div className="live-dot" />Live · Semester 2 · May 26, 2026</div>
+      </div>
+
       <div className="stats">
         {stats.map(({ val, lbl, color, top, hint, hc }) => (
           <div className="stat-card" key={lbl}>
@@ -215,16 +225,21 @@ function Dashboard({ data }) {
           </div>
         ))}
       </div>
+
       <div className="grid2">
         <Card title="Due this week" icon="📋" iconBg="rgba(200,16,46,0.1)" action="View all">
           {pending.slice(0, 3).map(a => (
             <div className="task-item" key={a.id}>
               <div className="task-dot" style={{ background: a.code?.startsWith('AIML') ? '#c8102e' : a.code?.startsWith('CLOD') ? '#60a5fa' : '#4ade80' }} />
-              <div className="task-info"><div className="task-name">{(a.title || '').slice(0, 28)}</div><div className="task-meta">{a.code}</div></div>
+              <div className="task-info">
+                <div className="task-name">{(a.title || '').slice(0, 28)}</div>
+                <div className="task-meta">{a.code}</div>
+              </div>
               <Badge text={String(a.due_date || '').slice(5, 10)} type={a.status === 'due' ? 'red' : 'amber'} />
             </div>
           ))}
         </Card>
+
         <Card title="Announcements" icon="📣" iconBg="rgba(96,165,250,0.1)" action="See all">
           {(data.announcements || []).slice(0, 3).map(a => (
             <div className="ann-item" key={a.id}>
@@ -235,6 +250,7 @@ function Dashboard({ data }) {
           ))}
         </Card>
       </div>
+
       <Card title="My courses" icon="📚" iconBg="rgba(167,139,250,0.1)" action="View all">
         <div className="course-grid">
           {(data.courses || []).map(c => (
@@ -377,6 +393,7 @@ function CalendarView({ events }) {
   const eventDays = events.map(e => new Date(e.event_date).getDate())
   const first = new Date(year, month, 1).getDay()
   const days = new Date(year, month + 1, 0).getDate()
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div className="page-title">Calendar</div>
@@ -387,17 +404,23 @@ function CalendarView({ events }) {
             <span style={{ fontSize: 13, fontWeight: 500 }}>{months[month]} {year}</span>
             <button className="cal-nav-btn" onClick={() => month === 11 ? (setMonth(0), setYear(y => y + 1)) : setMonth(m => m + 1)}>›</button>
           </div>
+
           <div className="cal-grid">
             {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => <div key={d} className="cal-day-name">{d}</div>)}
             {Array.from({ length: first }, (_, i) => <div key={`p${i}`} className="cal-day other">{new Date(year, month, 0).getDate() - first + 1 + i}</div>)}
             {Array.from({ length: days }, (_, i) => {
-              const d = i + 1, isToday = year === 2026 && month === 4 && d === 22, hasEv = eventDays.includes(d)
+              const d = i + 1
+              const isToday = year === 2026 && month === 4 && d === 22
+              const hasEv = eventDays.includes(d)
               return <div key={d} className={`cal-day${isToday ? ' today' : ''}${hasEv ? ' has-event' : ''}`}>{d}</div>
             })}
           </div>
         </div>
+
         <div className="card">
-          <div className="card-header"><div className="card-title"><div className="card-icon" style={{ background: 'rgba(200,16,46,0.1)' }}>📅</div>Upcoming events</div></div>
+          <div className="card-header">
+            <div className="card-title"><div className="card-icon" style={{ background: 'rgba(200,16,46,0.1)' }}>📅</div>Upcoming events</div>
+          </div>
           {events.slice(0, 6).map(e => (
             <div className="event-item" key={e.id}>
               <div className="event-dot" style={{ background: e.color || '#c8102e' }} />
@@ -420,45 +443,73 @@ function Chatbot() {
   const ref = useRef(null)
   const recRef = useRef(null)
 
-  useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight }, [msgs])
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight
+  }, [msgs])
 
   function startListening() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SR) { alert('Use Chrome or Edge for voice input'); return }
-    const r = new SR(); r.lang = 'en-US'; r.interimResults = false
+    const r = new SR()
+    r.lang = 'en-US'
+    r.interimResults = false
     r.onstart = () => setListening(true)
     r.onend = () => setListening(false)
-    r.onresult = e => { const t = e.results[0][0].transcript; setInput(t); setTimeout(() => send(t), 300) }
+    r.onresult = e => {
+      const t = e.results[0][0].transcript
+      setInput(t)
+      setTimeout(() => send(t), 300)
+    }
     r.onerror = () => setListening(false)
-    recRef.current = r; r.start()
+    recRef.current = r
+    r.start()
   }
 
-  function stopListening() { recRef.current?.stop(); setListening(false) }
+  function stopListening() {
+    recRef.current?.stop()
+    setListening(false)
+  }
 
   function speakText(text) {
     if (!window.speechSynthesis) return
     window.speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance(text.replace(/[*_#`]/g, '').replace(/\n/g, ' '))
-    u.lang = 'en-US'; u.rate = 1.0
+    const u = new SpeechSynthesisUtterance(text.replace(/[*_#`]/g, '').replace(/\\n/g, ' '))
+    u.lang = 'en-US'
+    u.rate = 1.0
     const v = window.speechSynthesis.getVoices().find(v => v.name.includes('Google') && v.lang === 'en-US')
     if (v) u.voice = v
-    u.onstart = () => setSpeaking(true); u.onend = () => setSpeaking(false)
+    u.onstart = () => setSpeaking(true)
+    u.onend = () => setSpeaking(false)
     window.speechSynthesis.speak(u)
   }
 
+  function stopSpeaking() {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+    }
+    setSpeaking(false)
+  }
+
   async function send(text) {
-    const q = (text || input).trim(); if (!q || streaming) return
+    const q = (text || input).trim()
+    if (!q || streaming) return
+
     setInput('')
     setMsgs(m => [...m, { role: 'user', text: q }, { role: 'bot', text: '', streaming: true }])
     setStreaming(true)
+
     try {
       let full = ''
-      for await (const chunk of streamChat(q)) { full += chunk; setMsgs(m => m.map((x, i) => i === m.length - 1 ? { ...x, text: full } : x)) }
+      for await (const chunk of streamChat(q)) {
+        full += chunk
+        setMsgs(m => m.map((x, i) => i === m.length - 1 ? { ...x, text: full } : x))
+      }
       setMsgs(m => m.map((x, i) => i === m.length - 1 ? { ...x, streaming: false } : x))
       speakText(full)
     } catch {
       setMsgs(m => m.map((x, i) => i === m.length - 1 ? { role: 'bot', text: 'Connection error. Check your backend.' } : x))
     }
+
     setStreaming(false)
   }
 
@@ -470,13 +521,22 @@ function Chatbot() {
         <div className="chat-bot-avatar">🤖</div>
         <div>
           <div className="chat-bot-name">LearnBot AI {speaking && <span style={{ fontSize: 10, opacity: .8 }}>🔊</span>}</div>
-          <div className="chat-bot-status"><div className="chat-status-dot" />Online · </div>
+          <div className="chat-bot-status"><div className="chat-status-dot" />Online · {speaking ? 'Speaking...' : 'Ready'}</div>
         </div>
-        <button className="chat-close" onClick={() => { setOpen(false); window.speechSynthesis?.cancel() }}>×</button>
+
+        {speaking && (
+          <button className="chat-stop-btn" onClick={stopSpeaking} type="button">
+            Stop
+          </button>
+        )}
+
+        <button className="chat-close" onClick={() => { setOpen(false); window.speechSynthesis?.cancel() }} type="button">×</button>
       </div>
+
       <div className="chat-msgs" ref={ref}>
         {msgs.map((m, i) => <div key={i} className={`chat-bubble ${m.role}`}>{m.text || (m.streaming ? '...' : '')}</div>)}
       </div>
+
       {msgs.length <= 2 && (
         <div className="chat-chips">
           {["What's due today?", "My grades?", "Upcoming quizzes?", "Who teaches ML?"].map(c => (
@@ -484,10 +544,17 @@ function Chatbot() {
           ))}
         </div>
       )}
+
       <div className="chat-input-row">
-        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder={listening ? '🎤 Listening...' : 'Ask about your courses...'} style={{ borderColor: listening ? 'var(--brand)' : undefined }} />
-        <button className={`chat-mic-btn${listening ? ' listening' : ''}`} onClick={listening ? stopListening : startListening}>🎤</button>
-        <button className="chat-send-btn" onClick={() => send()}>↑</button>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && send()}
+          placeholder={listening ? '🎤 Listening...' : 'Ask about your courses...'}
+          style={{ borderColor: listening ? 'var(--brand)' : undefined }}
+        />
+        <button className={`chat-mic-btn${listening ? ' listening' : ''}`} onClick={listening ? stopListening : startListening} type="button">🎤</button>
+        <button className="chat-send-btn" onClick={() => send()} type="button">↑</button>
       </div>
     </div>
   )
@@ -505,8 +572,10 @@ export default function App() {
     document.body.className = 'dark'
     Promise.all([fetchAssignments(), fetchGrades(), fetchCourses(), fetchQuizzes(), fetchAnnouncements(), fetchDiscussions(), fetchCalendar()])
       .then(([assignments, grades, courses, quizzes, announcements, discussions, events]) => {
-        setData({ assignments, grades, courses, quizzes, announcements, discussions, events }); setLoading(false)
-      }).catch(() => setLoading(false))
+        setData({ assignments, grades, courses, quizzes, announcements, discussions, events })
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }, [])
 
   const pending = data.assignments.filter(a => ['due', 'pending'].includes(a.status))
@@ -523,12 +592,14 @@ export default function App() {
             <button className="avatar-btn">SJ</button>
           </div>
         </div>
+
         <div className="layout">
           <div className="sidebar">
             <div className="sidebar-user">
               <div className="user-avatar">SJ</div>
               <div><div className="user-name">Sumedh Mahajan</div><div className="user-role">Cloud & AI Engineering</div></div>
             </div>
+
             {GROUPS.map(group => (
               <div className="nav-group" key={group}>
                 <div className="nav-label">{group}</div>
@@ -541,6 +612,7 @@ export default function App() {
               </div>
             ))}
           </div>
+
           <div className="wrapper">
             <div className="content">
               {loading ? <div style={{ textAlign: 'center', padding: 40, color: 'var(--text2)' }}>Connecting to backend...</div> : <>
@@ -554,6 +626,7 @@ export default function App() {
                 {page === 'calendar' && <CalendarView events={data.events} />}
               </>}
             </div>
+
             <Chatbot />
           </div>
         </div>
