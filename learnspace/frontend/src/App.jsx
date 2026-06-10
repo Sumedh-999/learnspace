@@ -212,7 +212,7 @@ function Dashboard({ data }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div>
         <div className="page-title">Hello, Sumedh 👋</div>
-        <div className="page-sub"><div className="live-dot" />Live · Semester 2 · May 26, 2026</div>
+        <div className="page-sub"><div className="live-dot" />Live · Semester 2 · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
       </div>
 
       <div className="stats">
