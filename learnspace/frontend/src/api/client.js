@@ -22,7 +22,7 @@ export const fetchCalendar = () =>
   fetch(`${BASE}/api/calendar/`).then(r => r.json())
 
 export async function* streamChat(message, studentId = 1) {
-  const res = await fetch(`${BASE}/api/chat/stream/`, {
+  const res = await fetch(`${BASE}/api/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, student_id: studentId })
