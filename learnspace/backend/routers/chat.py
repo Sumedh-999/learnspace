@@ -65,7 +65,7 @@ STUDENT DATA:
 {context}"""
 
     async with client.messages.stream(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=600,
         system=system,
         messages=[{"role": "user", "content": message}]
