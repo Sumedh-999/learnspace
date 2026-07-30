@@ -35,6 +35,8 @@ app.include_router(quizzes.router, prefix="/api/quizzes", tags=["quizzes"])
 app.include_router(announcements.router, prefix="/api/announcements", tags=["announcements"])
 app.include_router(discussions.router, prefix="/api/discussions", tags=["discussions"])
 app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
+app.include_router(tts.router, prefix="/api/tts", tags=["tts"])
+app.include_router(stt.router, prefix="/api/stt", tags=["stt"])
 
 @app.get("/")
 async def root():
