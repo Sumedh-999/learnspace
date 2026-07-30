@@ -447,41 +447,65 @@ function Chatbot() {
     if (ref.current) ref.current.scrollTop = ref.current.scrollHeight
   }, [msgs])
 
-  function startListening() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) { alert('Use Chrome or Edge for voice input'); return }
-    const r = new SR()
-    r.lang = 'en-US'
-    r.interimResults = false
-    r.onstart = () => setListening(true)
-    r.onend = () => setListening(false)
-    r.onresult = e => {
-      const t = e.results[0][0].transcript
-      setInput(t)
-      setTimeout(() => send(t), 300)
+  async function startListening() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+    const chunks = []
+    setListening(true)
+
+    mediaRecorder.ondataavailable = e => chunks.push(e.data)
+    mediaRecorder.onstop = async () => {
+      setListening(false)
+      stream.getTracks().forEach(t => t.stop())
+      const blob = new Blob(chunks, { type: 'audio/webm' })
+      const formData = new FormData()
+      formData.append('audio', blob, 'recording.webm')
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/stt/transcribe`, {
+          method: 'POST',
+          body: formData
+        })
+        const data = await res.json()
+        if (data.transcript) {
+          setInput(data.transcript)
+          setTimeout(() => send(data.transcript), 300)
+        }
+      } catch { console.error('STT failed') }
     }
-    r.onerror = () => setListening(false)
-    recRef.current = r
-    r.start()
-  }
 
-  function stopListening() {
-    recRef.current?.stop()
-    setListening(false)
-  }
+    mediaRecorder.start()
+    setTimeout(() => {
+      if (mediaRecorder.state === 'recording') mediaRecorder.stop()
+    }, 8000)
+    recRef.current = mediaRecorder
+  } catch { setListening(false) }
+}
 
-  function speakText(text) {
-    if (!window.speechSynthesis) return
-    window.speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance(text.replace(/[*_#`]/g, '').replace(/\\n/g, ' '))
-    u.lang = 'en-US'
-    u.rate = 1.0
-    const v = window.speechSynthesis.getVoices().find(v => v.name.includes('Google') && v.lang === 'en-US')
-    if (v) u.voice = v
-    u.onstart = () => setSpeaking(true)
-    u.onend = () => setSpeaking(false)
-    window.speechSynthesis.speak(u)
+function stopListening() {
+  if (recRef.current && recRef.current.state === 'recording') {
+    recRef.current.stop()
   }
+  setListening(false)
+}
+
+async function speakText(text) {
+  try {
+    setSpeaking(true)
+    const clean = text.replace(/[*_#`]/g, '').replace(/\n/g, ' ')
+    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/tts/speak`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: clean })
+    })
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const audio = new Audio(url)
+    audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url) }
+    audio.onerror = () => setSpeaking(false)
+    await audio.play()
+  } catch { setSpeaking(false) }
+}
 
   function stopSpeaking() {
     if (window.speechSynthesis) {
