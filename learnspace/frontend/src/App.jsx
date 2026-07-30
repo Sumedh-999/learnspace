@@ -442,6 +442,7 @@ function Chatbot() {
   const [speaking, setSpeaking] = useState(false)
   const ref = useRef(null)
   const recRef = useRef(null)
+  const audioRef = useRef(null)
 
   useEffect(() => {
     if (ref.current) ref.current.scrollTop = ref.current.scrollHeight
