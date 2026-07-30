@@ -1,10 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from routers import chat, assignments, grades, courses, quizzes, announcements, discussions, calendar
 import os
-
-from routers import chat, assignments, grades, courses, quizzes, announcements, discussions, calendar
+from routers import chat, assignments, grades, courses, quizzes, announcements, discussions, calendar, tts, stt
 from db.database import create_tables
 
 @asynccontextmanager
