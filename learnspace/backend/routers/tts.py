@@ -14,29 +14,38 @@ class TTSRequest(BaseModel):
 
 @router.post("/speak")
 async def text_to_speech(req: TTSRequest):
+    print(f"DEBUG - API Key exists: {bool(ELEVENLABS_API_KEY)}")
+    print(f"DEBUG - Voice ID: {ELEVENLABS_VOICE_ID}")
+    print(f"DEBUG - Text: {req.text[:50]}")
+
     if not ELEVENLABS_API_KEY or not ELEVENLABS_VOICE_ID:
         raise HTTPException(status_code=500, detail="ElevenLabs not configured")
 
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}/stream"
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
+
     headers = {
         "xi-api-key": ELEVENLABS_API_KEY,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg"
     }
+
     payload = {
         "text": req.text,
         "model_id": "eleven_turbo_v2_5",
         "voice_settings": {
             "stability": 0.5,
-            "similarity_boost": 0.75,
-            "style": 0.3,
-            "use_speaker_boost": True
+            "similarity_boost": 0.75
         }
     }
 
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(url, json=payload, headers=headers)
+        print(f"ElevenLabs response: {response.status_code} - {response.text[:300]}")
         if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail="ElevenLabs TTS error")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"ElevenLabs error: {response.text}"
+            )
         audio_content = response.content
 
     return StreamingResponse(
