@@ -443,6 +443,7 @@ function Chatbot() {
   const ref = useRef(null)
   const recRef = useRef(null)
   const audioRef = useRef(null)
+  const audioUrlRef = useRef(null)
 
   useEffect(() => {
     if (ref.current) ref.current.scrollTop = ref.current.scrollHeight
@@ -492,22 +493,40 @@ function stopListening() {
 
 async function speakText(text) {
   try {
+    stopSpeaking()
     setSpeaking(true)
+
     const clean = text.replace(/[*_#`]/g, '').replace(/\n/g, ' ')
     const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/tts/speak`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: clean })
     })
-    if (!res.ok) { setSpeaking(false); return }
+
+    if (!res.ok) {
+      stopSpeaking()
+      return
+    }
+
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)
     const audio = new Audio(url)
+
     audioRef.current = audio
-    audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); audioRef.current = null }
-    audio.onerror = () => { setSpeaking(false); audioRef.current = null }
+    audioUrlRef.current = url
+
+    audio.onended = () => {
+      stopSpeaking()
+    }
+
+    audio.onerror = () => {
+      stopSpeaking()
+    }
+
     await audio.play()
-  } catch { setSpeaking(false) }
+  } catch {
+    stopSpeaking()
+  }
 }
 
 function stopSpeaking() {
@@ -516,9 +535,14 @@ function stopSpeaking() {
     audioRef.current.currentTime = 0
     audioRef.current = null
   }
+
+  if (audioUrlRef.current) {
+    URL.revokeObjectURL(audioUrlRef.current)
+    audioUrlRef.current = null
+  }
+
   setSpeaking(false)
 }
-
   async function send(text) {
     const q = (text || input).trim()
     if (!q || streaming) return
