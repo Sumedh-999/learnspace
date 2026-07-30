@@ -499,21 +499,25 @@ async function speakText(text) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: clean })
     })
+    if (!res.ok) { setSpeaking(false); return }
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)
     const audio = new Audio(url)
-    audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url) }
-    audio.onerror = () => setSpeaking(false)
+    audioRef.current = audio
+    audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); audioRef.current = null }
+    audio.onerror = () => { setSpeaking(false); audioRef.current = null }
     await audio.play()
   } catch { setSpeaking(false) }
 }
 
-  function stopSpeaking() {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel()
-    }
-    setSpeaking(false)
+function stopSpeaking() {
+  if (audioRef.current) {
+    audioRef.current.pause()
+    audioRef.current.currentTime = 0
+    audioRef.current = null
   }
+  setSpeaking(false)
+}
 
   async function send(text) {
     const q = (text || input).trim()
@@ -555,7 +559,7 @@ async function speakText(text) {
           </button>
         )}
 
-        <button className="chat-close" onClick={() => { setOpen(false); window.speechSynthesis?.cancel() }} type="button">×</button>
+        <button className="chat-close" onClick={() => { setOpen(false); stopSpeaking() }} type="button">×</button>
       </div>
 
       <div className="chat-msgs" ref={ref}>
