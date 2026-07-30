@@ -24,7 +24,7 @@ async def text_to_speech(req: TTSRequest):
     }
     payload = {
         "text": req.text,
-        "model_id": "eleven_multilingual_v2",
+        "model_id": "eleven_turbo_v2_5",
         "voice_settings": {
             "stability": 0.5,
             "similarity_boost": 0.75,
