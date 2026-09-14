@@ -97,3 +97,48 @@ async def delete_document(doc_id: int, conn: asyncpg.Connection = Depends(get_db
     if not deleted:
         raise HTTPException(404, "No document with that id.")
     return {"deleted": doc_id}
+
+
+@router.get("/search")
+async def debug_search(q: str, conn: asyncpg.Connection = Depends(get_db)):
+    """Diagnostic: run retrieval in isolation and show raw scores."""
+    out = {"query": q}
+    try:
+        out["chunks_in_db"] = await conn.fetchval("SELECT count(*) FROM chunks")
+    except Exception as e:
+        out["chunks_in_db_error"] = f"{type(e).__name__}: {e}"
+        return out
+
+    try:
+        vecs = await rag.embed([q], "query")
+        out["embedding_dim"] = len(vecs[0]) if vecs else 0
+    except Exception as e:
+        out["embed_error"] = f"{type(e).__name__}: {e}"
+        return out
+
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT d.title,
+                   left(c.content, 120) AS preview,
+                   1 - (c.embedding <=> $1::vector) AS similarity
+            FROM chunks c
+            JOIN documents d ON d.id = c.document_id
+            ORDER BY c.embedding <=> $1::vector
+            LIMIT 5
+            """,
+            rag.to_pgvector(vecs[0]),
+        )
+        out["threshold"] = rag.MIN_SIMILARITY
+        out["results"] = [
+            {
+                "title": r["title"],
+                "similarity": round(float(r["similarity"]), 4),
+                "passes": float(r["similarity"]) >= rag.MIN_SIMILARITY,
+                "preview": r["preview"],
+            }
+            for r in rows
+        ]
+    except Exception as e:
+        out["sql_error"] = f"{type(e).__name__}: {e}"
+    return out
