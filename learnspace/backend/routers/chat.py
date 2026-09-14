@@ -163,10 +163,10 @@ async def build_context(conn, student_id: int, question: str) -> tuple[str, dict
 
     # uploaded course documents
     passages = []
-    try:
+       try:
         passages = await rag.search(conn, question)
-    except Exception:
-        pass  # retrieval is additive; never break chat over it
+    except Exception as e:
+        print(f"[rag] retrieval failed: {type(e).__name__}: {e}", flush=True)
 
     if passages:
         block = "\n\n".join(
