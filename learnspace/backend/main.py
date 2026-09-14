@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import os
 from routers import chat, assignments, grades, courses, quizzes, announcements, discussions, calendar, tts, stt
 from db.database import create_tables
+from routers import chat, assignments, grades, courses, quizzes, announcements, discussions, calendar, tts, stt, documents
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,6 +38,7 @@ app.include_router(discussions.router, prefix="/api/discussions", tags=["discuss
 app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
 app.include_router(tts.router, prefix="/api/tts", tags=["tts"])
 app.include_router(stt.router, prefix="/api/stt", tags=["stt"])
+app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
 
 @app.get("/")
 async def root():
