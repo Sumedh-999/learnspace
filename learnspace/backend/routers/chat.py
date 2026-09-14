@@ -7,6 +7,7 @@ import re
 import json
 import asyncpg
 from datetime import date
+import time
 
 from db.database import get_db
 import rag
@@ -147,40 +148,53 @@ def _json(rows):
 
 
 async def build_context(conn, student_id: int, question: str) -> tuple[str, dict]:
+    t = {}
+    t0 = time.perf_counter()
+    mark = lambda k, since: t.update({k: round((time.perf_counter() - since) * 1000)})
+
     wanted = pick_tables(question)
 
-    # always-on spine: cheap, keeps the bot oriented even on a bare greeting
+    s = time.perf_counter()
     codes = await conn.fetch("SELECT code, name FROM courses ORDER BY code")
+    mark("spine_ms", s)
+
     parts = [
         f"TODAY: {date.today().strftime('%B %d, %Y')}",
         f"ENROLLED: {_json(codes)}",
     ]
 
+    s = time.perf_counter()
     for table in sorted(wanted):
         rows = await FETCH[table](conn, student_id)
         if rows:
             parts.append(f"{LABEL[table]}: {_json(rows)}")
+    mark("tables_ms", s)
 
-    # uploaded course documents
     passages = []
+    s = time.perf_counter()
     try:
         passages = await rag.search(conn, question)
     except Exception as e:
         print(f"[rag] retrieval failed: {type(e).__name__}: {e}", flush=True)
+    mark("retrieval_ms", s)
 
     if passages:
-        block = "\n\n".join(
-            f'[{p["title"]}] {p["content"]}' for p in passages
-        )
+        block = "\n\n".join(f'[{p["title"]}] {p["content"]}' for p in passages)
         parts.append("COURSE DOCUMENTS (uploaded by the student):\n" + block)
+
+    context = "\n\n".join(parts)
+    mark("context_total_ms", t0)
+
+    print(f"[timing] {t} | tables={sorted(wanted)} | passages={len(passages)} "
+          f"| context_chars={len(context)}", flush=True)
 
     stats = {
         "tables": sorted(wanted),
         "passages": len(passages),
         "sources": sorted({p["title"] for p in passages}),
+        "timing": t,
     }
-    return "\n\n".join(parts), stats
-
+    return context, stats
 
 def build_system(context: str, has_docs: bool) -> str:
     doc_rule = (
@@ -220,6 +234,8 @@ def build_turns(message: str, history: list) -> list:
 
 
 async def event_stream(message: str, context: str, history: list, stats: dict):
+    s = time.perf_counter()
+    first = None
     async with client.messages.stream(
         model=MODEL,
         max_tokens=600,
@@ -227,7 +243,11 @@ async def event_stream(message: str, context: str, history: list, stats: dict):
         messages=build_turns(message, history),
     ) as stream:
         async for text in stream.text_stream:
+            if first is None:
+                first = round((time.perf_counter() - s) * 1000)
+                print(f"[timing] claude_first_token_ms={first}", flush=True)
             yield f"data: {json.dumps({'text': text})}\n\n"
+    print(f"[timing] claude_total_ms={round((time.perf_counter() - s) * 1000)}", flush=True)
     yield f"data: {json.dumps({'stats': stats})}\n\n"
     yield "data: [DONE]\n\n"
 
