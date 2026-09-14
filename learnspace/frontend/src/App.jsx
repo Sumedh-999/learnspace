@@ -433,6 +433,28 @@ function CalendarView({ events }) {
   )
 }
 
+function renderMarkdown(text) {
+  if (!text) return null
+  const lines = text.split('\n').filter(l => l.trim())
+  return lines.map((line, i) => {
+    const trimmed = line.trim()
+    const isBullet = /^[-•*]\s/.test(trimmed)
+    const content = isBullet ? trimmed.replace(/^[-•*]\s/, '') : trimmed
+    const parts = content.split(/(\*\*[^*]+\*\*)/g).filter(Boolean)
+    const rendered = parts.map((p, j) =>
+      p.startsWith('**') && p.endsWith('**')
+        ? <strong key={j}>{p.slice(2, -2)}</strong>
+        : <span key={j}>{p}</span>
+    )
+    return isBullet
+      ? <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+          <span style={{ color: 'var(--brand)', flexShrink: 0 }}>•</span>
+          <span>{rendered}</span>
+        </div>
+      : <div key={i} style={{ marginBottom: 4 }}>{rendered}</div>
+  })
+}
+
 function Chatbot() {
   const [open, setOpen] = useState(false)
   const [msgs, setMsgs] = useState([{ role: 'bot', text: "Hi Sumedh! 👋 I'm LearnBot. Ask me about assignments, grades, quizzes, or your courses!" }])
@@ -544,27 +566,41 @@ function stopSpeaking() {
   setSpeaking(false)
 }
   async function send(text) {
-    const q = (text || input).trim()
-    if (!q || streaming) return
+  const q = (text || input).trim()
+  if (!q || streaming) return
 
-    setInput('')
-    setMsgs(m => [...m, { role: 'user', text: q }, { role: 'bot', text: '', streaming: true }])
-    setStreaming(true)
+  setInput('')
+  setMsgs(m => [...m, { role: 'user', text: q }, { role: 'bot', text: '', streaming: true }])
+  setStreaming(true)
 
-    try {
-      let full = ''
-      for await (const chunk of streamChat(q)) {
-        full += chunk
-        setMsgs(m => m.map((x, i) => i === m.length - 1 ? { ...x, text: full } : x))
-      }
-      setMsgs(m => m.map((x, i) => i === m.length - 1 ? { ...x, streaming: false } : x))
-      speakText(full)
-    } catch {
-      setMsgs(m => m.map((x, i) => i === m.length - 1 ? { role: 'bot', text: 'Connection error. Check your backend.' } : x))
+  const t0 = performance.now()
+  let firstToken = null
+
+  try {
+    let full = ''
+    for await (const chunk of streamChat(q)) {
+      if (firstToken === null) firstToken = Math.round(performance.now() - t0)
+      full += chunk
+      setMsgs(m => m.map((x, i) => i === m.length - 1 ? { ...x, text: full } : x))
     }
-
-    setStreaming(false)
+    const total = Math.round(performance.now() - t0)
+    setMsgs(m => m.map((x, i) =>
+      i === m.length - 1
+        ? { ...x, streaming: false, latency: `${firstToken}ms first token · ${total}ms total` }
+        : x
+    ))
+    speakText(full)
+  } catch {
+    const total = Math.round(performance.now() - t0)
+    setMsgs(m => m.map((x, i) =>
+      i === m.length - 1
+        ? { role: 'bot', text: `Connection failed after ${total}ms. Backend may be cold-starting — try again.` }
+        : x
+    ))
   }
+
+  setStreaming(false)
+}
 
   if (!open) return <button className="chatbot-fab" onClick={() => setOpen(true)} aria-label="Open LearnBot">🤖</button>
 
@@ -587,7 +623,9 @@ function stopSpeaking() {
       </div>
 
       <div className="chat-msgs" ref={ref}>
-        {msgs.map((m, i) => <div key={i} className={`chat-bubble ${m.role}`}>{m.text || (m.streaming ? '...' : '')}</div>)}
+        {msgs.map((m, i) => <div key={i} className={`chat-bubble ${m.role}`}>{m.role === 'bot' ? renderMarkdown(m.text) : m.text}
+  {m.streaming && !m.text && '...'}
+  {m.latency && <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 6 }}>{m.latency}</div>)}
       </div>
 
       {msgs.length <= 2 && (
