@@ -54,20 +54,20 @@ BROAD = {"everything", "summary", "summarise", "summarize", "overview",
          "status", "all", "anything", "catch"}
 
 
-def pick_tables(question: str) -> set[str]:
+def pick_tables(question: str) -> tuple[set[str], bool]:
+    """Returns (tables, is_guess). is_guess means nothing matched —
+    the caller may drop these if retrieval finds something better."""
     words = re.findall(r"[a-z']+", question.lower())
     bag = set(words)
 
     hits = {t for t, keys in ROUTES.items() if bag & keys}
     if hits:
-        return {t for t in ROUTES} if bag & BROAD else hits
+        return ({t for t in ROUTES} if bag & BROAD else hits), False
 
-    # nothing matched: a short social message needs no data at all
     if len(words) <= 5 and bag & GREETING_WORDS:
-        return set()
+        return set(), False
 
-    # anything else unrecognised — send everything rather than answer blind
-    return set(ROUTES)
+    return set(ROUTES), True
 
 
 # ── fetchers, one per table ───────────────────────────────────────────────
@@ -152,31 +152,36 @@ async def build_context(conn, student_id: int, question: str) -> tuple[str, dict
     t0 = time.perf_counter()
     mark = lambda k, since: t.update({k: round((time.perf_counter() - since) * 1000)})
 
-    wanted = pick_tables(question)
+    wanted, is_guess = pick_tables(question)
+
+    embed_task = asyncio.create_task(rag.embed([question], "query"))
+
+    # retrieve first — a strong PDF hit means the tables aren't needed
+    passages = []
+    s = time.perf_counter()
+    try:
+        vecs = await embed_task
+        if vecs and await rag.has_documents(conn):
+            passages = await rag.search_with(conn, vecs[0])
+    except Exception as e:
+        embed_task.cancel()
+        print(f"[rag] retrieval failed: {type(e).__name__}: {e}", flush=True)
+    mark("retrieval_ms", s)
+
+    if is_guess and passages:
+        wanted = set()          # documents answered it; skip the database dump
 
     s = time.perf_counter()
     codes = await conn.fetch("SELECT code, name FROM courses ORDER BY code")
-    mark("spine_ms", s)
-
     parts = [
         f"TODAY: {date.today().strftime('%B %d, %Y')}",
         f"ENROLLED: {_json(codes)}",
     ]
-
-    s = time.perf_counter()
     for table in sorted(wanted):
         rows = await FETCH[table](conn, student_id)
         if rows:
             parts.append(f"{LABEL[table]}: {_json(rows)}")
-    mark("tables_ms", s)
-
-    passages = []
-    s = time.perf_counter()
-    try:
-        passages = await rag.search(conn, question)
-    except Exception as e:
-        print(f"[rag] retrieval failed: {type(e).__name__}: {e}", flush=True)
-    mark("retrieval_ms", s)
+    mark("db_ms", s)
 
     if passages:
         block = "\n\n".join(f'[{p["title"]}] {p["content"]}' for p in passages)
@@ -185,8 +190,8 @@ async def build_context(conn, student_id: int, question: str) -> tuple[str, dict
     context = "\n\n".join(parts)
     mark("context_total_ms", t0)
 
-    print(f"[timing] {t} | tables={sorted(wanted)} | passages={len(passages)} "
-          f"| context_chars={len(context)}", flush=True)
+    print(f"[timing] {t} | tables={sorted(wanted)} | guess={is_guess} "
+          f"| passages={len(passages)} | context_chars={len(context)}", flush=True)
 
     stats = {
         "tables": sorted(wanted),
