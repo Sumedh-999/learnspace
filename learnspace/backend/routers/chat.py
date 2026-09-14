@@ -6,6 +6,7 @@ import os
 import json
 import asyncpg
 from db.database import get_db
+from datetime import date
 
 router = APIRouter()
 client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -45,7 +46,7 @@ QUIZZES: {json.dumps([dict(r) for r in quizzes], default=str)}
 ANNOUNCEMENTS: {json.dumps([dict(r) for r in announcements], default=str)}
 DISCUSSIONS: {json.dumps([dict(r) for r in discussions], default=str)}
 CALENDAR: {json.dumps([dict(r) for r in events], default=str)}
-TODAY: May 26, 2026
+TODAY: {date.today().strftime('%B %d, %Y')}
 """
 
 async def event_stream(message: str, context: str):
