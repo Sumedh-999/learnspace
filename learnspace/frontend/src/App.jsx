@@ -698,17 +698,24 @@ function Bot() {
 
   const quiet = () => { if (rec.current?.state === 'recording') rec.current.stop(); setHearing(false) }
 
-  async function send(seed) {
+    async function send(seed) {
     const q = (seed ?? input).trim()
     if (!q || busy) return
     setInput(''); hush()
+
+    const past = msgs
+      .filter(m => m.text && !m.pending)
+      .map(m => ({ role: m.role === 'bot' ? 'assistant' : 'user', content: m.text }))
+      .slice(1)
+
     setMsgs(m => [...m, { role: 'user', text: q }, { role: 'bot', text: '', pending: true }])
     setBusy(true)
     const t0 = performance.now()
     let first = null
+
     try {
       let all = ''
-      for await (const bit of streamChat(q)) {
+      for await (const bit of streamChat(q, past)) {
         if (first === null) first = Math.round(performance.now() - t0)
         all += bit
         setMsgs(m => m.map((x, i) => i === m.length - 1 ? { ...x, text: all, pending: false } : x))
