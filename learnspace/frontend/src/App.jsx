@@ -247,7 +247,7 @@ tbody tr:hover td{background:var(--rise)}
   background:var(--sig);color:#fff;display:grid;place-items:center;z-index:40;
   box-shadow:0 8px 24px rgba(224,38,63,.32);transition:transform .15s}
 .fab:hover{transform:translateY(-2px)}
-.bot{position:absolute;bottom:22px;right:22px;width:352px;max-width:calc(100vw - 44px);
+.dock{position:absolute;bottom:22px;right:22px;width:352px;max-width:calc(100vw - 44px);
   background:var(--slab);border:1px solid var(--edge2);border-radius:16px;z-index:40;
   display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 52px rgba(0,0,0,.42)}
 .bh{display:flex;align-items:center;gap:10px;padding:13px 14px;border-bottom:1px solid var(--edge)}
@@ -294,7 +294,7 @@ tbody tr:hover td{background:var(--rise)}
   .scroll{padding:18px 16px 32px}
   .bar{padding:0 16px}
   .find{max-width:none}
-  .bot{width:calc(100vw - 32px);right:16px;bottom:16px}
+  .dock{width:calc(100vw - 32px);right:16px;bottom:16px}
   .fab{right:16px;bottom:16px}
   .met{min-width:50%;border-bottom:1px solid var(--edge)}
 }
@@ -739,7 +739,7 @@ function Bot() {
   )
 
   return (
-    <div className="bot" role="dialog" aria-label="LearnBot assistant">
+    <div className="dock" role="dialog" aria-label="LearnBot assistant">
       <header className="bh">
         <div className="bav"><Ico d={I.chat} s={16} /></div>
         <div style={{ flex: 1 }}>
