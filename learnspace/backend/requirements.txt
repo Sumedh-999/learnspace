@@ -5,3 +5,5 @@ anthropic>=0.40.0
 pydantic==2.7.1
 pydantic-core==2.18.2
 python-dotenv==1.0.1
+pypdf>=5.0.0
+voyageai>=0.3.0
