@@ -34,3 +34,31 @@ export async function* streamChat(message, history = [], studentId = 1) {
     }
   }
 }
+
+export const fetchDocuments = () =>
+  fetch(`${BASE}/api/documents/`).then(r => {
+    if (!r.ok) throw new Error('Could not load documents')
+    return r.json()
+  })
+
+export async function uploadDocument(file, onPhase = () => {}) {
+  const fd = new FormData()
+  fd.append('file', file)
+  onPhase('Uploading')
+
+  const res = await fetch(`${BASE}/api/documents/`, { method: 'POST', body: fd })
+
+  if (!res.ok) {
+    let detail = `Upload failed (${res.status})`
+    try { detail = (await res.json()).detail || detail } catch {}
+    throw new Error(detail)
+  }
+  onPhase('Indexing')
+  return res.json()
+}
+
+export async function deleteDocument(id) {
+  const res = await fetch(`${BASE}/api/documents/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Could not remove that document')
+  return res.json()
+}
