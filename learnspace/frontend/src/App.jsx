@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { fetchAssignments, fetchGrades, fetchCourses, fetchQuizzes, fetchAnnouncements, fetchDiscussions, fetchCalendar, streamChat } from './api/client'
-
+import { fetchAssignments, fetchGrades, fetchCourses, fetchQuizzes, fetchAnnouncements, fetchDiscussions, fetchCalendar, streamChat, fetchDocuments, uploadDocument, deleteDocument } from './api/client'
 /* ─────────────────────────  icons  ───────────────────────── */
 const I = {
   grid: <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />,
@@ -20,6 +19,7 @@ const I = {
   stop: <path d="M6 6h12v12H6z" />,
   clock: <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2" />,
   search: <path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35" />,
+  file: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8" />,
 }
 const Ico = ({ d, s = 16, w = 1.7 }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -32,6 +32,7 @@ const NAV = [
   { id: 'assignments', label: 'Assignments', icon: I.task, sec: 'Coursework', count: 'pending' },
   { id: 'quizzes', label: 'Quizzes', icon: I.check, sec: 'Coursework' },
   { id: 'grades', label: 'Grades', icon: I.chart, sec: 'Coursework' },
+  { id: 'documents', label: 'Documents', icon: I.file, sec: 'Coursework' },
   { id: 'discussions', label: 'Discussions', icon: I.chat, sec: 'Campus' },
   { id: 'announcements', label: 'Announcements', icon: I.mega, sec: 'Campus' },
   { id: 'calendar', label: 'Calendar', icon: I.cal, sec: 'Campus' },
@@ -234,6 +235,23 @@ tbody tr:hover td{background:var(--rise)}
 .cbtn{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--mute);font-size:15px}
 .cbtn:hover{background:var(--rise)}
 
+/* ── documents ── */
+.drop{margin:22px 0 0;padding:34px 20px;border:1.5px dashed var(--edge2);border-radius:var(--r);
+  text-align:center;cursor:pointer;background:var(--slab);transition:border-color .15s,background .15s}
+.drop:hover{border-color:var(--mute)}
+.drop.over{border-color:var(--sig);background:var(--sig-soft)}
+.drop.busy{cursor:default;border-style:solid;border-color:var(--edge)}
+.drop-t{font-family:var(--dis);font-size:14px;font-weight:600;letter-spacing:-.01em}
+.drop-s{font-size:11.5px;color:var(--mute);margin-top:5px}
+.warn{margin-top:12px;padding:11px 14px;border-radius:var(--r);font-size:12.5px;
+  background:var(--sig-soft);color:var(--sig);border:1px solid rgba(224,38,63,.25)}
+.fileico{width:32px;height:32px;border-radius:7px;flex-shrink:0;display:grid;place-items:center;
+  background:var(--sig-soft);color:var(--sig);font-family:var(--dis);font-size:9px;font-weight:700}
+.kill{font-size:11.5px;font-weight:500;color:var(--mute);padding:5px 11px;border-radius:7px;
+  border:1px solid var(--edge2);flex-shrink:0;transition:color .12s,border-color .12s}
+.kill:hover:not(:disabled){color:var(--sig);border-color:var(--sig)}
+.kill:disabled{opacity:.4;cursor:not-allowed}
+
 /* ── empty / loading ── */
 .void{text-align:center;padding:56px 20px;color:var(--mute);font-size:13px}
 .void b{display:block;font-family:var(--dis);font-size:16px;font-weight:600;color:var(--paper);
@@ -241,6 +259,129 @@ tbody tr:hover td{background:var(--rise)}
 .spin{width:18px;height:18px;border:2px solid var(--edge);border-top-color:var(--sig);
   border-radius:50%;margin:0 auto 14px;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
+
+function Documents() {
+  const [docs, setDocs] = useState([])
+  const [state, setState] = useState('loading')
+  const [busy, setBusy] = useState(null)
+  const [error, setError] = useState('')
+  const [drag, setDrag] = useState(false)
+  const picker = useRef(null)
+
+  const load = async () => {
+    try {
+      setDocs(await fetchDocuments())
+      setState('ready')
+    } catch {
+      setState('error')
+    }
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function take(files) {
+    const file = files?.[0]
+    if (!file || busy) return
+    setError('')
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      return setError('Only PDF files can be indexed.')
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      return setError(`${file.name} is ${(file.size / 1048576).toFixed(1)} MB — the limit is 8 MB.`)
+    }
+
+    setBusy({ name: file.name, phase: 'Reading' })
+    try {
+      await uploadDocument(file, phase => setBusy(b => ({ ...b, phase })))
+      setBusy(null)
+      await load()
+    } catch (e) {
+      setBusy(null)
+      setError(e.message || 'Upload failed.')
+    }
+  }
+
+  async function remove(doc) {
+    if (busy) return
+    setBusy({ name: doc.title, phase: 'Removing' })
+    try {
+      await deleteDocument(doc.id)
+      await load()
+    } catch (e) {
+      setError(e.message || 'Could not remove that document.')
+    }
+    setBusy(null)
+  }
+
+  const totalChunks = docs.reduce((n, d) => n + Number(d.chunks || 0), 0)
+
+  return (
+    <div className="page">
+      <h1 className="h1">Course documents</h1>
+      <p className="sub">
+        {docs.length
+          ? `${docs.length} indexed · ${totalChunks} passages searchable by LearnBot`
+          : 'Upload a syllabus or lecture notes and LearnBot can answer from them'}
+      </p>
+
+      <div
+        className={`drop${drag ? ' over' : ''}${busy ? ' busy' : ''}`}
+        onDragOver={e => { e.preventDefault(); setDrag(true) }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={e => { e.preventDefault(); setDrag(false); take(e.dataTransfer.files) }}
+        onClick={() => !busy && picker.current?.click()}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && !busy && picker.current?.click()}
+      >
+        <input ref={picker} type="file" accept="application/pdf" hidden
+          onChange={e => { take(e.target.files); e.target.value = '' }} />
+        {busy ? (
+          <>
+            <div className="spin" />
+            <div className="drop-t">{busy.phase} {busy.name}</div>
+            <div className="drop-s">Embedding can take a few seconds per document</div>
+          </>
+        ) : (
+          <>
+            <div className="drop-t">Drop a PDF here, or click to choose one</div>
+            <div className="drop-s">Text-based PDFs up to 8 MB. Scans need OCR first.</div>
+          </>
+        )}
+      </div>
+
+      {error && <div className="warn">{error}</div>}
+
+      <section className="panel" style={{ marginTop: 18 }}>
+        <header className="ph">
+          <h2 className="h2">Indexed</h2>
+          {docs.length > 0 && <span className="more">{totalChunks} passages</span>}
+        </header>
+        <div className="pb">
+          {state === 'loading' && <div className="void"><div className="spin" />Loading…</div>}
+          {state === 'error' && <Empty head="Couldn't load documents" note="The server may be waking up." />}
+          {state === 'ready' && !docs.length &&
+            <Empty head="Nothing indexed yet"
+              note="Once you upload a document, ask LearnBot about it and it will cite the source." />}
+          {docs.map(doc => (
+            <div className="row" key={doc.id}>
+              <span className="fileico">PDF</span>
+              <div className="row-m">
+                <div className="row-t">{doc.title}</div>
+                <div className="row-s">
+                  {doc.pages} pages · {doc.chunks} passages · added {short(String(doc.uploaded_at).slice(0, 10))}
+                </div>
+              </div>
+              <button className="kill" onClick={() => remove(doc)} disabled={!!busy}
+                aria-label={`Remove ${doc.title}`}>Remove</button>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
 
 /* ── bot ── */
 .fab{position:absolute;bottom:22px;right:22px;width:50px;height:50px;border-radius:16px;
@@ -824,6 +965,7 @@ export default function App() {
       case 'assignments': return <Assignments assignments={data.assignments} />
       case 'quizzes': return <Quizzes quizzes={data.quizzes} />
       case 'grades': return <Grades grades={data.grades} />
+      case 'documents': return <Documents />
       case 'discussions': return <Discussions discussions={data.discussions} />
       case 'announcements': return <Announcements announcements={data.announcements} />
       case 'calendar': return <CalendarPage events={data.events} />
