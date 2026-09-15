@@ -288,7 +288,7 @@ function Documents() {
       return setError('Only PDF files can be indexed.')
     }
     if (file.size > 8 * 1024 * 1024) {
-      return setError(`${file.name} is ${(file.size / 1048576).toFixed(1)} MB — the limit is 8 MB.`)
+      return setError(file.name + ' is ' + (file.size / 1048576).toFixed(1) + ' MB — the limit is 8 MB.')
     }
 
     setBusy({ name: file.name, phase: 'Reading' })
@@ -321,12 +321,12 @@ function Documents() {
       <h1 className="h1">Course documents</h1>
       <p className="sub">
         {docs.length
-          ? `${docs.length} indexed · ${totalChunks} passages searchable by LearnBot`
+          ? docs.length + ' indexed · ' + totalChunks + ' passages searchable by LearnBot'
           : 'Upload a syllabus or lecture notes and LearnBot can answer from them'}
       </p>
 
       <div
-        className={`drop${drag ? ' over' : ''}${busy ? ' busy' : ''}`}
+        className={'drop' + (drag ? ' over' : '') + (busy ? ' busy' : '')}
         onDragOver={e => { e.preventDefault(); setDrag(true) }}
         onDragLeave={() => setDrag(false)}
         onDrop={e => { e.preventDefault(); setDrag(false); take(e.dataTransfer.files) }}
