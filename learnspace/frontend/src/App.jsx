@@ -778,7 +778,134 @@ function CalendarPage({ events }) {
     </div>
   )
 }
+function Documents() {
+  const [docs, setDocs] = useState([])
+  const [state, setState] = useState('loading')
+  const [busy, setBusy] = useState(null)
+  const [error, setError] = useState('')
+  const [drag, setDrag] = useState(false)
+  const picker = useRef(null)
 
+  const load = async () => {
+    try {
+      const rows = await fetchDocuments()
+      setDocs(Array.isArray(rows) ? rows : [])
+      setState('ready')
+    } catch (e) {
+      console.error('[documents] load failed', e)
+      setState('error')
+    }
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function take(files) {
+    const file = files && files[0]
+    if (!file || busy) return
+    setError('')
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      return setError('Only PDF files can be indexed.')
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      return setError(file.name + ' is ' + (file.size / 1048576).toFixed(1) + ' MB — the limit is 8 MB.')
+    }
+
+    setBusy({ name: file.name, phase: 'Reading' })
+    try {
+      await uploadDocument(file, phase => setBusy(b => ({ ...b, phase })))
+      setBusy(null)
+      await load()
+    } catch (e) {
+      setBusy(null)
+      setError(e.message || 'Upload failed.')
+    }
+  }
+
+  async function remove(doc) {
+    if (busy) return
+    setBusy({ name: doc.title, phase: 'Removing' })
+    try {
+      await deleteDocument(doc.id)
+      await load()
+    } catch (e) {
+      setError(e.message || 'Could not remove that document.')
+    }
+    setBusy(null)
+  }
+
+  const totalChunks = Array.isArray(docs)
+    ? docs.reduce((n, d) => n + Number(d.chunks || 0), 0)
+    : 0
+
+  return (
+    <div className="page">
+      <h1 className="h1">Course documents</h1>
+      <p className="sub">
+        {docs.length
+          ? docs.length + ' indexed · ' + totalChunks + ' passages searchable by LearnBot'
+          : 'Upload a syllabus or lecture notes and LearnBot can answer from them'}
+      </p>
+
+      <div
+        className={'drop' + (drag ? ' over' : '') + (busy ? ' busy' : '')}
+        onDragOver={e => { e.preventDefault(); setDrag(true) }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={e => { e.preventDefault(); setDrag(false); take(e.dataTransfer.files) }}
+        onClick={() => { if (!busy && picker.current) picker.current.click() }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => {
+          if ((e.key === 'Enter' || e.key === ' ') && !busy && picker.current) picker.current.click()
+        }}
+      >
+        <input ref={picker} type="file" accept="application/pdf" hidden
+          onChange={e => { take(e.target.files); e.target.value = '' }} />
+        {busy ? (
+          <>
+            <div className="spin" />
+            <div className="drop-t">{busy.phase} {busy.name}</div>
+            <div className="drop-s">Embedding can take a few seconds per document</div>
+          </>
+        ) : (
+          <>
+            <div className="drop-t">Drop a PDF here, or click to choose one</div>
+            <div className="drop-s">Text-based PDFs up to 8 MB. Scans need OCR first.</div>
+          </>
+        )}
+      </div>
+
+      {error && <div className="warn">{error}</div>}
+
+      <section className="panel" style={{ marginTop: 18 }}>
+        <header className="ph">
+          <h2 className="h2">Indexed</h2>
+          {docs.length > 0 && <span className="more">{totalChunks} passages</span>}
+        </header>
+        <div className="pb">
+          {state === 'loading' && <div className="void"><div className="spin" />Loading…</div>}
+          {state === 'error' && <Empty head="Couldn't load documents" note="The server may be waking up." />}
+          {state === 'ready' && !docs.length &&
+            <Empty head="Nothing indexed yet"
+              note="Once you upload a document, ask LearnBot about it and it will cite the source." />}
+          {docs.map(doc => (
+            <div className="row" key={doc.id}>
+              <span className="fileico">PDF</span>
+              <div className="row-m">
+                <div className="row-t">{doc.title}</div>
+                <div className="row-s">
+                  {doc.pages} pages · {doc.chunks} passages · added {String(doc.uploaded_at).slice(0, 10)}
+                </div>
+              </div>
+              <button className="kill" onClick={() => remove(doc)} disabled={!!busy}
+                aria-label={'Remove ' + doc.title}>Remove</button>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
 /* ─────────────────────────  bot  ───────────────────────── */
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
