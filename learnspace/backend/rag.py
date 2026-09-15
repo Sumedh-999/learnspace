@@ -83,16 +83,13 @@ def to_pgvector(vec: list[float]) -> str:
     return "[" + ",".join(f"{x:.6f}" for x in vec) + "]"
 
 
-async def search(conn, question: str, k: int = TOP_K) -> list[dict]:
-    """Return the most similar chunks across all uploaded documents."""
-    row = await conn.fetchrow("SELECT count(*) AS n FROM chunks")
-    if not row or row["n"] == 0:
-        return []
+async def has_documents(conn) -> bool:
+    """Cheap existence check — EXISTS stops at the first row."""
+    return bool(await conn.fetchval("SELECT EXISTS (SELECT 1 FROM chunks)"))
 
-    vecs = await embed([question], "query")
-    if not vecs:
-        return []
 
+async def search_with(conn, vector: list[float], k: int = TOP_K) -> list[dict]:
+    """Similarity search using an embedding computed elsewhere."""
     rows = await conn.fetch(
         """
         SELECT c.content,
@@ -103,7 +100,15 @@ async def search(conn, question: str, k: int = TOP_K) -> list[dict]:
         ORDER BY c.embedding <=> $1::vector
         LIMIT $2
         """,
-        to_pgvector(vecs[0]),
+        to_pgvector(vector),
         k,
     )
     return [dict(r) for r in rows if r["similarity"] >= MIN_SIMILARITY]
+
+
+async def search(conn, question: str, k: int = TOP_K) -> list[dict]:
+    """Convenience path — embeds then searches. Used by /api/documents/search."""
+    if not await has_documents(conn):
+        return []
+    vecs = await embed([question], "query")
+    return await search_with(conn, vecs[0], k) if vecs else []
