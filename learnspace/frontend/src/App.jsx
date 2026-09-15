@@ -374,7 +374,7 @@ function Documents() {
                 </div>
               </div>
               <button className="kill" onClick={() => remove(doc)} disabled={!!busy}
-                aria-label={`Remove ${doc.title}`}>Remove</button>
+                aria-label={'Remove ' + doc.title}>Remove</button>
             </div>
           ))}
         </div>
