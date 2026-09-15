@@ -8,6 +8,7 @@ import json
 import asyncpg
 from datetime import date
 import time
+import asyncio
 
 from db.database import get_db
 import rag
