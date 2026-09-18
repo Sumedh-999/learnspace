@@ -16,7 +16,7 @@ import rag
 router = APIRouter()
 client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-MODEL = "claude-opus-5"
+MODEL = "claude-sonnet-5"
 
 
 class ChatRequest(BaseModel):
