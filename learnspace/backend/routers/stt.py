@@ -1,4 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import Depends
+from guard import check_code, rate_limit
 import httpx
 import os
 
@@ -6,7 +8,7 @@ router = APIRouter()
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
-@router.post("/transcribe")
+@router.post("/transcribe", dependencies=[Depends(check_code), Depends(rate_limit("chat"))])
 async def transcribe(audio: UploadFile = File(...)):
     if not ELEVENLABS_API_KEY:
         raise HTTPException(status_code=500, detail="ElevenLabs not configured")
