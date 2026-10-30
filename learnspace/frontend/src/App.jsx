@@ -992,10 +992,12 @@ function Bot() {
       setMsgs(m => m.map((x, i) => i === m.length - 1
         ? { ...x, pending: false, meta: `${first}ms to first word · ${total}ms total` } : x))
       say(all)
-    } catch {
-      const total = Math.round(performance.now() - t0)
-      setMsgs(m => m.map((x, i) => i === m.length - 1
-        ? { role: 'bot', text: `Couldn't reach the server after ${(total / 1000).toFixed(1)}s. It may be waking up — try again.` } : x))
+    } catch (e) {
+      const msg = String(e.message || '')
+      const text = msg.includes('429')
+        ? "That's the demo limit for now — the rest of the portal still works. Try the assistant again shortly."
+        : "Couldn't reach the server. It may be waking up — try again."
+      setMsgs(m => m.map((x, i) => i === m.length - 1 ? { role: 'bot', text } : x))
     }
     setBusy(false)
   }
