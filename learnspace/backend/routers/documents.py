@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from guard import check_code, rate_limit
 import asyncpg
 import io
 
@@ -28,7 +29,7 @@ async def list_documents(conn: asyncpg.Connection = Depends(get_db)):
     return [dict(r) for r in rows]
 
 
-@router.post("/")
+@router.post("/", dependencies=[Depends(check_code), Depends(rate_limit("upload"))])
 async def upload_document(
     file: UploadFile = File(...),
     conn: asyncpg.Connection = Depends(get_db),
@@ -89,7 +90,7 @@ async def upload_document(
     }
 
 
-@router.delete("/{doc_id}")
+@router.delete("/{doc_id}", dependencies=[Depends(check_code)])
 async def delete_document(doc_id: int, conn: asyncpg.Connection = Depends(get_db)):
     deleted = await conn.fetchval(
         "DELETE FROM documents WHERE id = $1 RETURNING id", doc_id
