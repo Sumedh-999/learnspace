@@ -259,7 +259,7 @@ async def event_stream(message: str, context: str, history: list, stats: dict):
     yield "data: [DONE]\n\n"
 
 
-@router.post("/stream", dependencies=[Depends(check_code), Depends(rate_limit("chat"))]))
+@router.post("/stream", dependencies=[Depends(check_code), Depends(rate_limit("chat"))])
 async def chat_stream(req: ChatRequest, conn: asyncpg.Connection = Depends(get_db)):
     context, stats = await build_context(conn, req.student_id, req.message)
     return StreamingResponse(
