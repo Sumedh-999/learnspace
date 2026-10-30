@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi import Depends
+from guard import check_code, rate_limit
 from pydantic import BaseModel
 import httpx
 import os
@@ -12,7 +14,7 @@ ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID")
 class TTSRequest(BaseModel):
     text: str
 
-@router.post("/speak")
+@router.post("/speak", dependencies=[Depends(check_code), Depends(rate_limit("chat"))])
 async def text_to_speech(req: TTSRequest):
     print(f"DEBUG - API Key exists: {bool(ELEVENLABS_API_KEY)}")
     print(f"DEBUG - Voice ID: {ELEVENLABS_VOICE_ID}")
