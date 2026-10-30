@@ -1,4 +1,10 @@
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const code = () => localStorage.getItem('ls_code') || ''
+const authHeaders = (extra = {}) => ({ ...extra, 'X-Access-Code': code() })
+
+export const setAccessCode = (v) => localStorage.setItem('ls_code', v.trim())
+export const hasAccessCode = () => !!code()
+export const clearAccessCode = () => localStorage.removeItem('ls_code')
 
 export const fetchAssignments   = ()      => fetch(`${BASE}/api/assignments/`).then(r => r.json())
 export const fetchGrades        = (id=1)  => fetch(`${BASE}/api/grades/${id}`).then(r => r.json())
@@ -11,7 +17,7 @@ export const fetchCalendar      = ()      => fetch(`${BASE}/api/calendar/`).then
 export async function* streamChat(message, history = [], studentId = 1) {
   const res = await fetch(`${BASE}/api/chat/stream`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ message, history, student_id: studentId })
   })
   if (!res.ok) throw new Error(`chat ${res.status}`)
