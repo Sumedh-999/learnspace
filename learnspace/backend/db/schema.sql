@@ -1,3 +1,7 @@
+-- ── extensions ──
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- ── portal tables ──
 CREATE TABLE IF NOT EXISTS students (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -26,7 +30,8 @@ CREATE TABLE IF NOT EXISTS assignments (
     points INT DEFAULT 100,
     status TEXT DEFAULT 'pending',
     score INT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (course_id, title)
 );
 
 CREATE TABLE IF NOT EXISTS grades (
@@ -35,7 +40,8 @@ CREATE TABLE IF NOT EXISTS grades (
     course_id INT REFERENCES courses(id),
     percentage NUMERIC(5,2),
     letter_grade TEXT,
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (student_id, course_id)
 );
 
 CREATE TABLE IF NOT EXISTS quizzes (
@@ -47,13 +53,14 @@ CREATE TABLE IF NOT EXISTS quizzes (
     total_questions INT DEFAULT 20,
     total_points INT DEFAULT 100,
     status TEXT DEFAULT 'upcoming',
-    score INT
+    score INT,
+    UNIQUE (course_id, title)
 );
 
 CREATE TABLE IF NOT EXISTS announcements (
     id SERIAL PRIMARY KEY,
     course_id INT REFERENCES courses(id),
-    title TEXT NOT NULL,
+    title TEXT NOT NULL UNIQUE,
     body TEXT,
     audience TEXT DEFAULT 'all',
     posted_at TIMESTAMPTZ DEFAULT NOW()
@@ -66,7 +73,8 @@ CREATE TABLE IF NOT EXISTS discussions (
     author_initials TEXT,
     body TEXT NOT NULL,
     reply_count INT DEFAULT 0,
-    posted_at TIMESTAMPTZ DEFAULT NOW()
+    posted_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (author_name, body)
 );
 
 CREATE TABLE IF NOT EXISTS calendar_events (
@@ -75,11 +83,32 @@ CREATE TABLE IF NOT EXISTS calendar_events (
     title TEXT NOT NULL,
     event_date DATE NOT NULL,
     event_type TEXT DEFAULT 'deadline',
-    color TEXT DEFAULT '#c8102e'
+    color TEXT DEFAULT '#c8102e',
+    UNIQUE (title, event_date)
 );
 
+-- ── RAG tables ──
+CREATE TABLE IF NOT EXISTS documents (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    pages INT,
+    uploaded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS chunks (
+    id SERIAL PRIMARY KEY,
+    document_id INT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    idx INT NOT NULL,
+    content TEXT NOT NULL,
+    embedding vector(1024) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS chunks_vec_idx
+    ON chunks USING hnsw (embedding vector_cosine_ops);
+
+-- ── sample data (safe to re-run) ──
 INSERT INTO students (name, email, student_id, program, semester)
-VALUES ('Sumedh Joshi', 'sumedh@learnspace.ca', 'STU-2024-001', 'Cloud & AI Engineering', 2)
+VALUES ('Sumedh Mahajan', 'sumedh@learnspace.ca', 'STU-2024-001', 'Cloud & AI Engineering', 2)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO courses (code, name, instructor, schedule, color, progress) VALUES
