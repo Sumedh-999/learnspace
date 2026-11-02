@@ -10,6 +10,11 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U learnspace -d learnspace"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
 
   backend:
     build: ./backend
@@ -21,7 +26,6 @@ services:
       DB_USER: learnspace
       DB_PASSWORD: learnspace
       DB_NAME: learnspace
-      DB_SSL: "disable"
       FRONTEND_URL: http://localhost:5173
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       VOYAGE_API_KEY: ${VOYAGE_API_KEY}
@@ -29,7 +33,8 @@ services:
       ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID}
       ACCESS_CODE: ${ACCESS_CODE:-}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - ./backend:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -40,6 +45,8 @@ services:
       - "5173:5173"
     environment:
       VITE_API_URL: http://localhost:8000
+    depends_on:
+      - backend
     volumes:
       - ./frontend:/app
       - /app/node_modules
