@@ -1,8 +1,6 @@
-version: "3.9"
-
 services:
   db:
-    image: postgres:15
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: learnspace
       POSTGRES_PASSWORD: learnspace
@@ -18,9 +16,18 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://learnspace:learnspace@db:5432/learnspace
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: learnspace
+      DB_PASSWORD: learnspace
+      DB_NAME: learnspace
+      DB_SSL: "disable"
       FRONTEND_URL: http://localhost:5173
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID}
+      ACCESS_CODE: ${ACCESS_CODE:-}
     depends_on:
       - db
     volumes:
